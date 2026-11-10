@@ -3,6 +3,7 @@ One-way UDP encryption tunnel to forward sFlow over an untrusted network.
 
 ** Example unit file **
 
+```
 [Unit]
 Description=sFlow Secure
 After=network.target nss-lookup.target
@@ -15,3 +16,4 @@ TimeoutStopSec=10
 
 [Install]
 WantedBy=multi-user.target
+```
