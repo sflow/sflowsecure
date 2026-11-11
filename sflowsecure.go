@@ -1,6 +1,4 @@
-/* This software is distributed under the following license:
- * http://sflow.net/license.html
- */
+/* sflowsecure - one-way UDP encrypted tunnel */
 
 package main
 
