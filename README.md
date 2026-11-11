@@ -11,8 +11,8 @@ cd sflowsecure
 make
 sudo make install
 ```
-3. Use a password generator to generate a random 32-bit ASCII private key.
-4. As root, edit the unit file /lib/systemd/system/sflowsecure.service to set the mode (sender or receiver), listen socket and forward socket options, and install the secret key. The sender will encrypt using the key and the receiver will decrypt using the same key.
+3. Use a password generator to generate a random 32-character secret key.
+4. As root, edit the unit file /lib/systemd/system/sflowsecure.service to set the mode (sender or receiver), listen socket and forward socket options, and install the secret key. The sender(s) will encrypt using the key and the receiver will decrypt using the same key.
 5. Schedule it to run with:
   ```
   sudo systemctl enable sflowsecure.service
