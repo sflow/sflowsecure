@@ -19,8 +19,10 @@ import (
 const (
 	ivSizeBytes  = 12
 	tagSizeBytes = 16
-	maxUDPSize   = 1500
+	maxUDPSize   = 8192
 )
+
+var authFailures uint64
 
 // --- Anti-Replay Sliding Window Implementation ---
 
@@ -211,22 +213,27 @@ func runReceiver(listenAddr, forwardAddrStr string, key []byte) {
 			continue // Discard corrupt microscopic fragments instantly
 		}
 
-		// FAST FILTER: absolute offset extraction of the session prefix and counter directly from unencrypted IV
-		sessionPrefix := binary.BigEndian.Uint32(readBuf[0:4])
-		packetSequence := binary.BigEndian.Uint64(readBuf[4:12])
-
-		if !replayTracker.ValidateAndStep(sessionPrefix, packetSequence) {
-			continue // Drop replayed attack datagrams completely before wasting CPU on encryption math
-		}
-
 		// Execute AEAD block decryption using writeBuf as an unallocated target window
 		iv := readBuf[0:12]
 		ciphertextAndTag := readBuf[12:n]
-
 		plaintext, err := aesgcm.Open(writeBuf[:0], iv, ciphertextAndTag, nil)
 		if err != nil {
-			log.Printf("Security alert: Cryptographic verification failure from open network buffer.")
+			// rate limited logging for auth failures
+			failures := atomic.AddUint64(&authFailures, 1)
+			if failures%1000 == 1 {
+				log.Printf(
+					"Authentication failures: %d",
+					failures,
+				)
+			}
 			continue
+		}
+
+		// FAST FILTER: absolute offset extraction of the session prefix and counter directly from unencrypted IV
+		sessionPrefix := binary.BigEndian.Uint32(readBuf[0:4])
+		packetSequence := binary.BigEndian.Uint64(readBuf[4:12])
+		if !replayTracker.ValidateAndStep(sessionPrefix, packetSequence) {
+			continue // Drop replayed attack datagrams completely before wasting CPU on encryption math
 		}
 
 		// Pass verified telemetry payload down the chain to local consumers
