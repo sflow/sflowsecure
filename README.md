@@ -1,23 +1,30 @@
+
 # sflowsecure
-One-way UDP encryption tunnel to forward sFlow over an untrusted network.
+
+One-way UDP encryption tunnel: forward sFlow over an untrusted network.
 
 The steps are:
-* clone this repo
-* make
-* make install
-* use a password generator to generate a random 32-bit ASCII private key.
-* as root, edit the unit file /lib/systemd/system/sflowsecure.service to set the mode (sender or receiver), listen (socket) and forward (socket) options, and install the secret key.
-* double-check to make sure the unit file is only accessible to root.
-* schedule it to run now and on reboot with:
+1. Clone this repo
+2. Compile with:
+```
+cd sflowsecure
+make
+sudo make install
+```
+3. Use a password generator to generate a random 32-bit ASCII private key.
+4. As root, edit the unit file /lib/systemd/system/sflowsecure.service to set the mode (sender or receiver), listen socket and forward socket options, and install the secret key. The sender will encrypt using the key and the receiver will decrypt using the same key.
+5. Schedule it to run with:
   ```
   sudo systemctl enable sflowsecure.service
   sudo systemctl daemon-reload
   sudo systemctl start sflowsecure
   ```
-* if you are at the sender end,  point your sFlow feeds to the listen socket.
+6. At the sender end, point your device sFlow feed(s) to the listen socket. The forward socket should point to the remote receiver, but _not_ to the standard 6343 port (we used 56343 in the example below).
+7. Ensure that firewalls on the path will allow the traffic, including the software-firewall at the receiver.
+8. At the receiver end, set listen to that port (e.g. 0.0.0.0:56343) and forward to the local sFlow collector.
   
   
-## Example sender unit file
+### Example sender unit file
 
 ```
 [Unit]
