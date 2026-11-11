@@ -11,7 +11,7 @@ After=network.target nss-lookup.target
 [Service]
 Type=simple
 ExecStart=/usr/sbin/sflowsecure -mode sender -listen 127.0.0.1:6343 -forward 10.100.100.117:56343
-Environment="SFLOWSECURE_KEY=4TG7iMTYtNVTZ1uRxiv2wriRxLXY1HpG"
+Environment="SFLOWSECURE_KEY=<put your randomly-generated 32 character secret key string here>"
 TimeoutStopSec=10
 
 [Install]
@@ -26,7 +26,7 @@ After=network.target nss-lookup.target
 [Service]
 Type=simple
 ExecStart=/usr/sbin/sflowsecure -mode receiver -listen 0.0.0.0:56343 -forward 127.0.0.1:6343
-Environment="SFLOWSECURE_KEY=4TG7iMTYtNVTZ1uRxiv2wriRxLXY1HpG"
+Environment="SFLOWSECURE_KEY=<put the exact same secret key string here>"
 TimeoutStopSec=10
 
 [Install]
