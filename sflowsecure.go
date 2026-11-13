@@ -19,6 +19,11 @@ const (
 	ivSizeBytes  = 16
 	tagSizeBytes = 16
 	maxUDPSize   = 8192
+	// The per-session overhead is only about 120 bytes, so we can safely set a
+	// number for the maxSessions that is enough for the largest known sFlow
+	// deployments, (even if those deployments are very unlikely to ever push
+	// all their agent feeds through one sflowsecure tunnel).
+	maxSessions = 1000000
 )
 
 var authFailures uint64
@@ -46,6 +51,18 @@ func (t *AntiReplayTracker) ValidateAndStep(sessionPrefix uint64, seq uint64) bo
 
 	state, exists := t.sessions[sessionPrefix]
 	if !exists {
+		if len(t.sessions) >= maxSessions {
+			// If we legitimately want this many sender sessions, then increase
+			// the value of maxSessions and recompile, but if this is some kind
+			// of exhaustion-attack then simply exiting so that the receiver is
+			// restarted by systemd (after a short pause) is considered an acceptable
+			// way of limiting the damage. At least the attack cannot grow memory
+			// usage indefinitely or saturate a CPU core. Note that the systemd
+			// unit file is exected to wait for a second or two and then restart
+			// the service.
+			log.Printf("Maximum session count reached (%d). Exiting.", maxSessions)
+			os.Exit(1)
+		}
 		state = &SessionState{}
 		t.sessions[sessionPrefix] = state
 	}
@@ -155,15 +172,15 @@ func runSender(listenAddr, forwardAddrStr string, key []byte) {
 		// Calculate precise counter metrics
 		currentCount := atomic.AddUint64(&packetCounter, 1) - 1
 
-		// Inline structure formatting for the 12-byte Counter IV
+		// Inline structure formatting for the 16-byte nonce
 		binary.BigEndian.PutUint64(iv[0:8], sessionPrefix)
 		binary.BigEndian.PutUint64(iv[8:16], currentCount)
 
-		// Pack unencrypted 12-byte IV block straight onto the front of the write window
+		// Pack unencrypted 16-byte nonce straight onto the front of the write window
 		copy(writeBuf[0:ivSizeBytes], iv)
 
 		// Encrypt in-place using direct hardware mapping (AVX/AES-NI)
-		// Destination window bounds point safely behind the 12-byte header offset
+		// Destination window bounds point safely behind the 16-byte header offset
 		encryptedPayload := aesgcm.Seal(writeBuf[ivSizeBytes:ivSizeBytes], iv, readBuf[:n], nil)
 
 		totalWireBytes := ivSizeBytes + len(encryptedPayload)
