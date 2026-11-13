@@ -22,7 +22,7 @@ $(SFLOWSECURE): $(SFLOWSECURE).go
 install: $(SFLOWSECURE)
 	id -u $(SFLOWSECURE) >/dev/null 2>&1 || $(USERADD) -r -M -s /usr/sbin/nologin $(SFLOWSECURE)
 	if [ ! -d "$(SYSTEMDDIR)" ]; then $(INSTALL) -d  $(SYSTEMDDIR); fi
-	if [ ! -d "$(CONFIGDDIR)" ]; then $(INSTALL) -d $(CONFIGDIR); fi
+	if [ ! -d "$(CONFIGDIR)" ]; then $(INSTALL) -d $(CONFIGDIR); fi
 	if [ ! -d "$(BINDIR)" ]; then $(INSTALL) -d $(BINDIR); fi
 	$(INSTALL) -m 755 $(SFLOWSECURE) $(BINDIR)
 	$(INSTALL) -m 644 $(SFLOWSECURE).service $(SYSTEMDDIR)/$(SFLOWSECURE).service
