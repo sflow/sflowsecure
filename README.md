@@ -27,7 +27,7 @@ sudo make install
 ### Example sender sflowsecure.env file (should only be readable by root)
 
 ```
-SFLOWSECURE_KEY= <insert random 64-character-hex secret key here>
+SFLOWSECURE_KEY=<insert random 64-character-hex secret key here>
 SFLOWSECURE_MODE=sender
 SFLOWSECURE_LISTEN=0.0.0.0:6343
 SFLOWSECURE_FORWARD=10.100.100.1:56343
@@ -36,7 +36,7 @@ SFLOWSECURE_FORWARD=10.100.100.1:56343
 ### Example receiver sflowsecure.env file (should only be readable by root)
 
 ```
-SFLOWSECURE_KEY= <same hex key as above>
+SFLOWSECURE_KEY=<same hex key as above>
 SFLOWSECURE_MODE=receiver
 SFLOWSECURE_LISTEN=0.0.0.0:56343
 SFLOWSECURE_FORWARD=127.0.0.1:6343
