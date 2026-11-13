@@ -11,7 +11,7 @@ cd sflowsecure
 make
 sudo make install
 ```
-3. Use a password generator to generate a random 32-character secret key.
+3. Use a password generator to generate a random 64-character-hex secret key (e.g. `openssl rand -hex 32`).
 4. As root, edit the config file /etc/sflowsecure/sflowsecure.env to install the secret key and set the mode (sender or receiver), listen (socket), and forward (socket) options. The sender(s) will encrypt using the key and the receiver will decrypt using the same key.
 5. Schedule it to run with:
   ```
@@ -27,7 +27,7 @@ sudo make install
 ### Example sender sflowsecure.env file (should only be readable by root)
 
 ```
-SFLOWSECURE_KEY= <insert random 32-character secret key here>
+SFLOWSECURE_KEY= <insert random 64-character-hex secret key here>
 SFLOWSECURE_MODE=sender
 SFLOWSECURE_LISTEN=0.0.0.0:6343
 SFLOWSECURE_FORWARD=10.100.100.1:56343
@@ -36,7 +36,7 @@ SFLOWSECURE_FORWARD=10.100.100.1:56343
 ### Example receiver sflowsecure.env file (should only be readable by root)
 
 ```
-SFLOWSECURE_KEY= <same key as above>
+SFLOWSECURE_KEY= <same hex key as above>
 SFLOWSECURE_MODE=receiver
 SFLOWSECURE_LISTEN=0.0.0.0:56343
 SFLOWSECURE_FORWARD=127.0.0.1:6343

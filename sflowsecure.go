@@ -7,6 +7,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
@@ -285,9 +286,15 @@ func main() {
 	if keyHex == "" {
 		log.Fatal("Fatal: SFLOWSECURE_KEY environment variable is not configured.")
 	}
-	key := []byte(keyHex)
+	if len(keyHex) != 64 {
+		log.Fatal("SFLOWSECURE_KEY must be exactly 64 hexadecimal characters (e.g. openssl rand -hex 32)")
+	}
+	key, err := hex.DecodeString(keyHex)
+	if err != nil {
+		log.Fatalf("SFLOWSECURE_KEY contains invalid hexadecimal characters: %v", err)
+	}
 	if len(key) != 32 {
-		log.Fatalf("Fatal cryptographic configuration validation failure: The key string input length must be exactly 32 characters (256-bits). Current length detected: %d", len(key))
+		log.Fatalf("Encryption key must be exactly 256-bits (32 bytes).")
 	}
 	listen := os.Getenv("SFLOWSECURE_LISTEN")
 	if listen == "" {
