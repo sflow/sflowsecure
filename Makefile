@@ -26,7 +26,7 @@ install: $(SFLOWSECURE)
 	if [ ! -d "$(BINDIR)" ]; then $(INSTALL) -d $(BINDIR); fi
 	$(INSTALL) -m 755 $(SFLOWSECURE) $(BINDIR)
 	$(INSTALL) -m 644 $(SFLOWSECURE).service $(SYSTEMDDIR)/$(SFLOWSECURE).service
-	if [ ! -f "$(CONFIGDIR)/$(SFLOWSECURE).env" ]; then $(INSTALL) -m 700 $(SFLOWSECURE).env $(CONFIGDIR); fi
+	if [ ! -f "$(CONFIGDIR)/$(SFLOWSECURE).env" ]; then $(INSTALL) -m 600 $(SFLOWSECURE).env $(CONFIGDIR); fi
 
 #########  schedule  #########
 
