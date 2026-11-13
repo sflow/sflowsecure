@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	ivSizeBytes  = 12
+	ivSizeBytes  = 16
 	tagSizeBytes = 16
 	maxUDPSize   = 8192
 )
@@ -33,14 +33,14 @@ type SessionState struct {
 
 type AntiReplayTracker struct {
 	mu       sync.Mutex
-	sessions map[uint32]*SessionState
+	sessions map[uint64]*SessionState
 }
 
 func NewAntiReplayTracker() *AntiReplayTracker {
-	return &AntiReplayTracker{sessions: make(map[uint32]*SessionState)}
+	return &AntiReplayTracker{sessions: make(map[uint64]*SessionState)}
 }
 
-func (t *AntiReplayTracker) ValidateAndStep(sessionPrefix uint32, seq uint64) bool {
+func (t *AntiReplayTracker) ValidateAndStep(sessionPrefix uint64, seq uint64) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -97,12 +97,12 @@ func runSender(listenAddr, forwardAddrStr string, key []byte) {
 		log.Fatalf("Failed to initialize GCM wrapper: %v", err)
 	}
 
-	// Generate a unique 4-byte session prefix for process lifecycle
-	var sessionPrefixBuf [4]byte
+	// Generate a unique 8-byte session prefix for process lifecycle
+	var sessionPrefixBuf [8]byte
 	if _, err := rand.Read(sessionPrefixBuf[:]); err != nil {
 		log.Fatalf("Failed to securely seed session metadata: %v", err)
 	}
-	sessionPrefix := binary.BigEndian.Uint32(sessionPrefixBuf[:])
+	sessionPrefix := binary.BigEndian.Uint64(sessionPrefixBuf[:])
 	var packetCounter uint64
 
 	// Bind listener socket to ingest clean local metrics stream
@@ -156,17 +156,17 @@ func runSender(listenAddr, forwardAddrStr string, key []byte) {
 		currentCount := atomic.AddUint64(&packetCounter, 1) - 1
 
 		// Inline structure formatting for the 12-byte Counter IV
-		binary.BigEndian.PutUint32(iv[0:4], sessionPrefix)
-		binary.BigEndian.PutUint64(iv[4:12], currentCount)
+		binary.BigEndian.PutUint64(iv[0:8], sessionPrefix)
+		binary.BigEndian.PutUint64(iv[8:16], currentCount)
 
 		// Pack unencrypted 12-byte IV block straight onto the front of the write window
-		copy(writeBuf[0:12], iv)
+		copy(writeBuf[0:ivSizeBytes], iv)
 
 		// Encrypt in-place using direct hardware mapping (AVX/AES-NI)
 		// Destination window bounds point safely behind the 12-byte header offset
-		encryptedPayload := aesgcm.Seal(writeBuf[12:12], iv, readBuf[:n], nil)
+		encryptedPayload := aesgcm.Seal(writeBuf[ivSizeBytes:ivSizeBytes], iv, readBuf[:n], nil)
 
-		totalWireBytes := 12 + len(encryptedPayload)
+		totalWireBytes := ivSizeBytes + len(encryptedPayload)
 		_, _ = connOut.Write(writeBuf[:totalWireBytes])
 	}
 }
@@ -224,13 +224,13 @@ func runReceiver(listenAddr, forwardAddrStr string, key []byte) {
 			// was truncated and ignore it too.
 		}
 
-		if n < ivSizeBytes+tagSizeBytes {
+		if n < (ivSizeBytes + tagSizeBytes) {
 			continue // Discard corrupt microscopic fragments instantly
 		}
 
 		// Execute AEAD block decryption using writeBuf as an unallocated target window
-		iv := readBuf[0:12]
-		ciphertextAndTag := readBuf[12:n]
+		iv := readBuf[0:ivSizeBytes]
+		ciphertextAndTag := readBuf[ivSizeBytes:n]
 		plaintext, err := aesgcm.Open(writeBuf[:0], iv, ciphertextAndTag, nil)
 		if err != nil {
 			// rate limited logging for auth failures
@@ -245,8 +245,8 @@ func runReceiver(listenAddr, forwardAddrStr string, key []byte) {
 		}
 
 		// FAST FILTER: absolute offset extraction of the session prefix and counter directly from unencrypted IV
-		sessionPrefix := binary.BigEndian.Uint32(readBuf[0:4])
-		packetSequence := binary.BigEndian.Uint64(readBuf[4:12])
+		sessionPrefix := binary.BigEndian.Uint64(readBuf[0:8])
+		packetSequence := binary.BigEndian.Uint64(readBuf[8:16])
 		if !replayTracker.ValidateAndStep(sessionPrefix, packetSequence) {
 			continue // Drop replayed attack datagrams completely before wasting CPU on encryption math
 		}
