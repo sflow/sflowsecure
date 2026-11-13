@@ -12,7 +12,7 @@ make
 sudo make install
 ```
 3. Use a password generator to generate a random 32-character secret key.
-4. As root, edit the unit file /lib/systemd/system/sflowsecure.service to set the mode (sender or receiver), listen socket and forward socket options, and install the secret key. The sender(s) will encrypt using the key and the receiver will decrypt using the same key.
+4. As root, edit the config file /etc/sflowsecure/sflowsecure.env to install the secret key and set the mode (sender or receiver), listen (socket), and forward (socket) options. The sender(s) will encrypt using the key and the receiver will decrypt using the same key.
 5. Schedule it to run with:
   ```
   sudo systemctl enable sflowsecure.service
@@ -24,33 +24,20 @@ sudo make install
 8. At the receiver end, set listen to that port (e.g. 0.0.0.0:56343) and forward to the local sFlow collector.
   
   
-### Example sender unit file
+### Example sender sflowsecure.env file (should only be readable by root)
 
 ```
-[Unit]
-Description=sFlow Secure
-After=network.target nss-lookup.target
-
-[Service]
-Type=simple
-ExecStart=/usr/sbin/sflowsecure -mode sender -listen 127.0.0.1:6343 -forward 10.100.100.117:56343
-Environment="SFLOWSECURE_KEY=<put randomly-generated 32 character secret key here>"
-TimeoutStopSec=10
-
-[Install]
-WantedBy=multi-user.target
+SFLOWSECURE_KEY= <insert random 32-character secret key here>
+SFLOWSECURE_MODE=sender
+SFLOWSECURE_LISTEN=0.0.0.0:6343
+SFLOWSECURE_FORWARD=10.100.100.1:56343
 ```
-## Example receiver unit file
+
+### Example receiver sflowsecure.env file (should only be readable by root)
+
 ```
-[Unit]
-Description=sFlow Secure
-After=network.target nss-lookup.target
-
-[Service]
-Type=simple
-ExecStart=/usr/sbin/sflowsecure -mode receiver -listen 0.0.0.0:56343 -forward 127.0.0.1:6343
-Environment="SFLOWSECURE_KEY=<put the same secret key string here>"
-TimeoutStopSec=10
-
-[Install]
-WantedBy=multi-user.target
+SFLOWSECURE_KEY= <same key as above>
+SFLOWSECURE_MODE=receiver
+SFLOWSECURE_LISTEN=0.0.0.0:56343
+SFLOWSECURE_FORWARD=127.0.0.1:6343
+```

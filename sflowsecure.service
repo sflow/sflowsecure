@@ -4,9 +4,12 @@ After=network.target nss-lookup.target
 
 [Service]
 Type=simple
-ExecStart=/usr/sbin/sflowsecure -mode sender -listen _LISTENSOCK_ -forward _FWDSOCK_
-Environment="SFLOWSECURE_KEY=_KEY_"
-TimeoutStopSec=10
+User=sflowsecure
+Group=sflowsecure
+ExecStart=/usr/sbin/sflowsecure
+EnvironmentFile=/etc/sflowsecure/sflowsecure.env
+Restart=always
+RestartSec=1
 
 [Install]
 WantedBy=multi-user.target

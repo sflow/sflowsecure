@@ -1,12 +1,12 @@
-# This software is distributed under the following license:
-# http://sflow.net/license.html
+# sflowsecure Makefile
 
 SFLOWSECURE=sflowsecure
 INSTALL=install
-BINDIR     ?= /usr/sbin
-SYSTEMDDIR ?= /lib/systemd/system
-SYSTEMD_D=$(SYSTEMDDIR)
-BIN_D=$(BINDIR)
+USERADD=useradd
+BINDIR ?=/usr/sbin
+SYSTEMDDIR ?=/lib/systemd/system
+CONFIGDIR ?=/etc/$(SFLOWSECURE)
+ENVFILE=$(CONFIGDIR)/$(SFLOWSECURE).env
 
 #########  hsflowd_containerd  #########
 
@@ -20,9 +20,13 @@ $(SFLOWSECURE): $(SFLOWSECURE).go
 #########  install  #########
 
 install: $(SFLOWSECURE)
-	$(INSTALL) -d $(SYSTEMD_D)
-	$(INSTALL) -m 644 $(SFLOWSECURE).service $(SYSTEMD_D)/$(SFLOWSECURE).service
-	$(INSTALL) -m 700 $(SFLOWSECURE) $(BIN_D)
+	id -u $(SFLOWSECURE) >/dev/null 2>&1 || $(USERADD) -r -M -s /usr/sbin/nologin $(SFLOWSECURE)
+	if [ ! -d "$(SYSTEMDDIR)" ]; then $(INSTALL) -d  $(SYSTEMDDIR); fi
+	if [ ! -d "$(CONFIGDDIR)" ]; then $(INSTALL) -d $(CONFIGDIR); fi
+	if [ ! -d "$(BINDIR)" ]; then $(INSTALL) -d $(BINDIR); fi
+	$(INSTALL) -m 755 $(SFLOWSECURE) $(BINDIR)
+	$(INSTALL) -m 644 $(SFLOWSECURE).service $(SYSTEMDDIR)/$(SFLOWSECURE).service
+	if [ ! -f "$(CONFIGDIR)/$(SFLOWSECURE).env" ]; then $(INSTALL) -m 700 $(SFLOWSECURE).env $(CONFIGDIR); fi
 
 #########  schedule  #########
 
@@ -30,8 +34,12 @@ schedule:
 	systemctl daemon-reload
 	systemctl enable $(SFLOWSECURE)
 
+unschedule:
+	systemctl disable $(SFLOWSECURE)
+	systemctl daemon-reload
+
 #########  clean   #########
 
-clean: 
+clean:
 	rm -f $(SFLOWSECURE)
 

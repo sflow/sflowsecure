@@ -7,7 +7,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
-	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -141,6 +140,17 @@ func runSender(listenAddr, forwardAddrStr string, key []byte) {
 			log.Printf("Read tracking fault: %v", err)
 			continue
 		}
+		// require enough headroom to add the header and still stay under the maxUDPSize,
+		// because the receiver will assume that anything filling the buffer was larger
+		// and has been truncated.
+		// We could switch to rcvmsg() to know the truncation flag from the
+		// kernel but this way is OK too since we should never get an sFlow datagram
+		// that is anything close to this limit. The standard suggests 1400 bytes as
+		// the max size to reduce the liklihood of any fragmentation in transit.
+		if n > (maxUDPSize - tagSizeBytes - ivSizeBytes - 1) {
+			log.Printf("Incoming datagram too large.")
+			continue
+		}
 
 		// Calculate precise counter metrics
 		currentCount := atomic.AddUint64(&packetCounter, 1) - 1
@@ -208,6 +218,11 @@ func runReceiver(listenAddr, forwardAddrStr string, key []byte) {
 			log.Printf("Ingress network fault: %v", err)
 			continue
 		}
+		if n >= maxUDPSize {
+			continue // Discard anything we regard as too big.
+			// Note that we assume anything exactly filling the read buffer
+			// was truncated and ignore it too.
+		}
 
 		if n < ivSizeBytes+tagSizeBytes {
 			continue // Discard corrupt microscopic fragments instantly
@@ -244,17 +259,11 @@ func runReceiver(listenAddr, forwardAddrStr string, key []byte) {
 // --- Bootstrap Engine ---
 
 func main() {
-	mode := flag.String("mode", "", "Execution lifecycle mapping: 'sender' or 'receiver'")
-	listen := flag.String("listen", "127.0.0.1:6343", "Local binding listener target IP:Port string")
-	forward := flag.String("forward", "127.0.0.1:6344", "Target destination ip:port matrix")
-	flag.Parse()
-
-	if *mode != "sender" && *mode != "receiver" {
+	mode := os.Getenv("SFLOWSECURE_MODE")
+	if mode != "sender" && mode != "receiver" {
 		fmt.Println("Error: Invalid configuration state. A valid execution mode specification is required.")
-		flag.Usage()
 		os.Exit(1)
 	}
-
 	keyHex := os.Getenv("SFLOWSECURE_KEY")
 	if keyHex == "" {
 		log.Fatal("Fatal: SFLOWSECURE_KEY environment variable is not configured.")
@@ -263,11 +272,18 @@ func main() {
 	if len(key) != 32 {
 		log.Fatalf("Fatal cryptographic configuration validation failure: The key string input length must be exactly 32 characters (256-bits). Current length detected: %d", len(key))
 	}
-
-	if *mode == "sender" {
-		runSender(*listen, *forward, key)
+	listen := os.Getenv("SFLOWSECURE_LISTEN")
+	if listen == "" {
+		log.Fatal("Fatal: SFLOWSECURE_LISTEN environment variable is not configured.")
+	}
+	forward := os.Getenv("SFLOWSECURE_FORWARD")
+	if forward == "" {
+		log.Fatal("Fatal: SFLOWSECURE_FORWARD environment variable is not configured.")
+	}
+	if mode == "sender" {
+		runSender(listen, forward, key)
 	} else {
-		runReceiver(*listen, *forward, key)
+		runReceiver(listen, forward, key)
 	}
 }
 
